@@ -1,0 +1,5 @@
+{
+  "name": "hello",
+  "executable": "/bin/sh",
+  "args": ["-c", "mkdir $out && echo hello world > $out/hello.txt"]
+}
