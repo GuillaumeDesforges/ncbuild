@@ -1,8 +1,9 @@
 package builder
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
+	"fmt"
+
+	"github.com/gohugoio/hashstructure"
 )
 
 type Recipe struct {
@@ -12,9 +13,11 @@ type Recipe struct {
 }
 
 func (r Recipe) Hash() string {
-	summary := r.Name + r.Executable
-	hash := sha256.New()
-	hash.Write([]byte(summary))
-	strHash := hex.EncodeToString(hash.Sum(nil))[:16]
+	hash, err := hashstructure.Hash(r, nil)
+	if err != nil {
+		panic(err)
+	}
+
+	strHash := fmt.Sprintf("%d", hash)
 	return strHash
 }
