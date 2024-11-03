@@ -23,3 +23,10 @@ Then run in the same folder:
 ```bash
 ncbuild build
 ```
+
+## TODO
+
+High
+
+- [ ] mount or copy inputs to container `/ncbuild/store/`
+- [ ] schedule build graph
