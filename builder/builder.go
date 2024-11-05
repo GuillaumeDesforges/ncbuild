@@ -3,9 +3,11 @@ package builder
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/sirupsen/logrus"
@@ -17,7 +19,6 @@ type IBuilder interface {
 
 type Builder struct {
 	DockerClient  *client.Client
-	BuilderImage  string
 	Store         IStore
 	keepContainer bool
 }
@@ -32,10 +33,18 @@ func (b *Builder) Build(ctx context.Context, recipe Recipe) (string, error) {
 	containerArgs[0] = recipe.Executable
 	copy(containerArgs[1:], recipe.Args)
 
+	logrus.Infof("Pulling image %s\n", recipe.BuildDockerImage)
+	imagePullOut, err := b.DockerClient.ImagePull(ctx, recipe.BuildDockerImage, image.PullOptions{})
+	if err != nil {
+		panic(err)
+	}
+	defer imagePullOut.Close()
+	io.Copy(os.Stderr, imagePullOut)
+
 	buildContainer, err := b.DockerClient.ContainerCreate(
 		ctx,
 		&container.Config{
-			Image:        b.BuilderImage,
+			Image:        recipe.BuildDockerImage,
 			Cmd:          containerArgs,
 			AttachStdout: true,
 			AttachStderr: true,

@@ -4,12 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"os/user"
 
 	"github.com/GuillaumeDesforges/ncbuild/builder"
-	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -60,15 +58,7 @@ func BuildCwd() {
 			User:      currentUser.Gid,
 		},
 		DockerClient: dockerClient,
-		BuilderImage: "bitnami/minideb",
 	}
-
-	imagePullOut, err := dockerClient.ImagePull(ctx, builder.BuilderImage, image.PullOptions{})
-	if err != nil {
-		panic(err)
-	}
-	defer imagePullOut.Close()
-	io.Copy(os.Stdout, imagePullOut)
 
 	outputPath, err := builder.Build(ctx, recipe)
 	if err != nil {

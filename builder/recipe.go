@@ -7,9 +7,14 @@ import (
 )
 
 type Recipe struct {
-	Name       string   `json:""`
-	Executable string   `json:""`
-	Args       []string `json:""`
+	// The name of the recipe
+	Name string `json:"name"`
+	// The Docker image to use to build the output within
+	BuildDockerImage string `json:"build_docker_image"`
+	// The executable to run within the Docker container
+	Executable string `json:"executable"`
+	// The arguments to pass to the executable
+	Args []string `json:"args"`
 }
 
 func (r Recipe) Hash() string {
