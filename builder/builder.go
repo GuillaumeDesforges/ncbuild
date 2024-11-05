@@ -8,22 +8,25 @@ import (
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/sirupsen/logrus"
 )
 
 type IBuilder interface {
-	Build(recipe Recipe) (string, error)
+	Build(ctx context.Context, recipe Recipe) (string, error)
 }
 
 type Builder struct {
-	DockerClient  *client.Client
-	Store         IStore
-	keepContainer bool
+	DockerClient   *client.Client
+	Store          IStore
+	KeepContainers bool
 }
 
 func (b *Builder) Build(ctx context.Context, recipe Recipe) (string, error) {
+	var err error
+
 	recipeHash := recipe.Hash()
 	outputPath := b.Store.GetOutputPath(recipe)
 	logrus.Infof("Building %s\n", recipe.Name)
@@ -41,6 +44,16 @@ func (b *Builder) Build(ctx context.Context, recipe Recipe) (string, error) {
 	defer imagePullOut.Close()
 	io.Copy(os.Stderr, imagePullOut)
 
+	mounts := make([]mount.Mount, len(recipe.Inputs))
+	for iInput, input := range recipe.Inputs {
+		mounts[iInput] = mount.Mount{
+			Type:     mount.TypeBind,
+			ReadOnly: true,
+			Source:   input,
+			Target:   input,
+		}
+	}
+
 	buildContainer, err := b.DockerClient.ContainerCreate(
 		ctx,
 		&container.Config{
@@ -49,10 +62,12 @@ func (b *Builder) Build(ctx context.Context, recipe Recipe) (string, error) {
 			AttachStdout: true,
 			AttachStderr: true,
 			Env: []string{
-				"out=/out",
+				fmt.Sprintf("out=%s", outputPath),
 			},
 		},
-		nil,
+		&container.HostConfig{
+			Mounts: mounts,
+		},
 		nil,
 		nil,
 		fmt.Sprintf("ncbuild-%s", recipeHash),
@@ -60,9 +75,11 @@ func (b *Builder) Build(ctx context.Context, recipe Recipe) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	logrus.Debugf("Created container %s\n", buildContainer.ID)
 
-	if !b.keepContainer {
-		defer func() {
+	defer func() {
+		if err == nil || (err != nil && !b.KeepContainers) {
+			logrus.Debug("Removing container")
 			err := b.DockerClient.ContainerRemove(
 				ctx,
 				buildContainer.ID,
@@ -73,8 +90,10 @@ func (b *Builder) Build(ctx context.Context, recipe Recipe) (string, error) {
 			if err != nil {
 				logrus.Errorf("Failed to remove container %s: %s", buildContainer.ID, err)
 			}
-		}()
-	}
+		} else {
+			logrus.Warnf("Keeping container %s", buildContainer.ID)
+		}
+	}()
 
 	// run the container
 	err = b.DockerClient.ContainerStart(
@@ -97,7 +116,8 @@ func (b *Builder) Build(ctx context.Context, recipe Recipe) (string, error) {
 		}
 	case response := <-responseCh:
 		if response.StatusCode != 0 {
-			return "", fmt.Errorf("Container exited with status %d", response.StatusCode)
+			err = fmt.Errorf("Container exited with status %d", response.StatusCode)
+			return "", err
 		}
 	}
 
@@ -105,7 +125,7 @@ func (b *Builder) Build(ctx context.Context, recipe Recipe) (string, error) {
 	output, outStat, err := b.DockerClient.CopyFromContainer(
 		ctx,
 		buildContainer.ID,
-		"/out",
+		outputPath,
 	)
 	if err != nil {
 		return "", err

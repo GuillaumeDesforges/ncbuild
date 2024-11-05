@@ -19,13 +19,22 @@ func NewBuildCommand() *cobra.Command {
 		Short: "Build",
 		Long:  "Build the project",
 		Run: func(cmd *cobra.Command, args []string) {
-			BuildCwd()
+			if debug, _ := cmd.Flags().GetBool("debug"); debug {
+				logrus.SetLevel(logrus.DebugLevel)
+			}
+
+			keepContainers, _ := cmd.Flags().GetBool("keep-containers")
+
+			BuildCwd(keepContainers)
 		},
 	}
+	cmd.PersistentFlags().Bool("debug", false, "Enable debug mode")
+	cmd.PersistentFlags().Bool("keep-containers", false, "Keep containers on failure")
+
 	return cmd
 }
 
-func BuildCwd() {
+func BuildCwd(keepContainers bool) {
 	ctx := context.Background()
 
 	var recipe builder.Recipe
@@ -57,7 +66,8 @@ func BuildCwd() {
 			StorePath: "/tmp/ncbuild/",
 			User:      currentUser.Gid,
 		},
-		DockerClient: dockerClient,
+		DockerClient:   dockerClient,
+		KeepContainers: keepContainers,
 	}
 
 	outputPath, err := builder.Build(ctx, recipe)

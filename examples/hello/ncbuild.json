@@ -2,5 +2,5 @@
   "name": "hello",
   "build_docker_image": "bitnami/minideb",
   "executable": "/bin/sh",
-  "args": ["-c", "mkdir $out && echo 'hello world' > $out/hello.txt"]
+  "args": ["-c", "mkdir -p $out && echo 'hello world' > $out/hello.txt"]
 }

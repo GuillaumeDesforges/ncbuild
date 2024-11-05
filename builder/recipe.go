@@ -11,6 +11,8 @@ type Recipe struct {
 	Name string `json:"name"`
 	// The Docker image to use to build the output within
 	BuildDockerImage string `json:"build_docker_image"`
+	// Inputs
+	Inputs []string `json:"inputs"`
 	// The executable to run within the Docker container
 	Executable string `json:"executable"`
 	// The arguments to pass to the executable
